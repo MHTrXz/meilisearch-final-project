@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search App</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .search-box {
+            width: 100%;
+            margin: 20px 0;
+        }
+        .filters-and-results {
+            display: flex;
+            width: 100%;
+        }
+        .filters {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 300px; /* Adjust width as needed */
+            margin-right: 20px;
+        }
+        .results {
+            flex-grow: 1;
+        }
+        .result-item {
+            display: flex;
+            align-items: center;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .result-item img {
+            max-width: 100px;
+            border-radius: 8px;
+            margin-right: 20px;
+        }
+        .result-details h3 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+        .result-details p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="search-box">
+        <div class="input-group mb-3">
+            <input type="text" id="searchQuery" class="form-control" placeholder="Search...">
+            <div class="input-group-append">
+                <button onclick="search()" class="btn btn-primary">Search</button>
+            </div>
+        </div>
+    </div>
+    <div class="filters-and-results">
+        <div class="filters">
+            <div class="form-group">
+                <label for="startDate">Start Date:</label>
+                <input type="date" id="startDate" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="endDate">End Date:</label>
+                <input type="date" id="endDate" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="genre">Genres:</label>
+                <select id="genre" class="form-control" multiple>
+                    <option value="">None</option>
+                    <option value="action">Action</option>
+                    <option value="comedy">Comedy</option>
+                    <option value="drama">Drama</option>
+                    <!-- Add more genres as needed -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="searchType">Search Type:</label>
+                <input type="range" id="searchType" class="form-control" min="0" max="100" value="50">
+                <span id="searchTypeValue">50</span>% Semantic
+            </div>
+            <div class="form-group">
+                <label for="index">Index:</label>
+                <select id="index" class="form-control">
+                    <option value="movies">Movies</option>
+                    <option value="movies-vectorized">Movies Vectorized</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="applySemanticOnKeyword">Apply Semantic on Keyword Results:</label>
+                <select id="applySemanticOnKeyword" class="form-control">
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sortBy">Sort By:</label>
+                <select id="sortBy" class="form-control">
+                    <option value="">None</option>
+                    <option value="name">Name</option>
+                    <option value="time">Time</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sortOrder">Sort Order:</label>
+                <select id="sortOrder" class="form-control">
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="model">Vector Search Model:</label>
+                <select id="model" class="form-control">
+                    <option value="">None</option>
+                    <option value="huggingFace">HuggingFace</option>
+                    <option value="bert">BERT</option>
+                </select>
+            </div>
+        </div>
+        <div class="results" id="results"></div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('searchType').addEventListener('input', function() {
+        document.getElementById('searchTypeValue').textContent = this.value;
+    });
+
+    function search() {
+        const query = document.getElementById('searchQuery').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const genreSelect = document.getElementById('genre');
+        const genres = Array.from(genreSelect.selectedOptions).map(option => option.value).filter(value => value !== "");
+        const searchType = document.getElementById('searchType').value;
+        const index = document.getElementById('index').value;
+        const applySemanticOnKeyword = document.getElementById('applySemanticOnKeyword').value;
+        const sortBy = document.getElementById('sortBy').value;
+        const sortOrder = document.getElementById('sortOrder').value;
+        const model = document.getElementById('model').value;
+
+        let url = `http://localhost:8000/search?query=${query}&index=${index}&search_type=${searchType}&apply_semantic_on_keyword=${applySemanticOnKeyword}`;
+        if (startDate) url += `&start_date=${startDate.replace(/-/g, ',')}`;
+        if (endDate) url += `&end_date=${endDate.replace(/-/g, ',')}`;
+        if (genres.length > 0) url += `&genres=${genres.join(',')}`;
+        if (sortBy) url += `&sort_by=${sortBy}`;
+        if (sortBy && sortOrder) url += `&sort_order=${sortOrder}`;
+        if (model) url += `&model=${model}`;
+
+        fetch(url, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => displayResults(data.hits))
+        .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function displayResults(data) {
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = '';  // Clear previous results
+
+        data.forEach(item => {
+            const resultItem = document.createElement('div');
+            resultItem.className = 'result-item';
+
+            const poster = document.createElement('img');
+            poster.src = item.poster;
+            poster.alt = item.title;
+
+            const details = document.createElement('div');
+            details.className = 'result-details';
+
+            const title = document.createElement('h3');
+            title.textContent = item.title;
+
+            const overview = document.createElement('p');
+            overview.textContent = item.overview;
+
+            const genres = document.createElement('p');
+            genres.textContent = `Genres: ${item.genres.join(', ')}`;
+
+            const time = document.createElement('p');
+            time.textContent = `Time: ${new Date(item.release_date * 1000).toLocaleString()}`; // Convert UNIX to human-readable format
+
+            details.appendChild(title);
+            details.appendChild(overview);
+            details.appendChild(genres);
+            details.appendChild(time);
+
+            resultItem.appendChild(poster);
+            resultItem.appendChild(details);
+
+            resultsContainer.appendChild(resultItem);
+        });
+    }
+</script>
+
+</body>
+</html>
